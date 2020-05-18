@@ -1,5 +1,5 @@
 # NeuralNets
-This repo contains code for several different neural networks. This project is created by Matthijs Kok and is used for a bachelor thesis of the study Business and IT on the University of Twente (academic purposes). In order to use/run this code, make sure you adhere to the [requirements](#requirements). For an [explanation](#explanation-of-the-files:) you can read the descriptions of the files below. For help, questions or remarks, please send an email to <email>. 
+This repo contains code for several different neural networks. This project is created by Matthijs Kok and is used for a bachelor thesis of the study Business and IT on the University of Twente (academic purposes). In order to use/run this code, make sure you adhere to the [requirements](#requirements). For an [explanation](#explanation-of-the-files) you can read the descriptions of the files below. For help, questions or remarks, please send an email to <email>. 
 
 # Requirements:
 
