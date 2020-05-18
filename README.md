@@ -2,10 +2,17 @@
 This repo contains code for several different neural networks. This project is created by Matthijs Kok and is used for a bachelor thesis of the study Business and IT on the University of Twente (academic purposes). In order to use/run this code, make sure you adhere to the requirements. For an explanation you can read the descriptions of the files below. For help, questions or remarks, please send an email to <email>. 
 
 Requirements:
+
 There are a few things required, before you will be able to run the code published on this repository. a 64-bit Python version 3.5-3.7 is required, because of compatibility reasons with Tensorflow (library). The code was written in Python 3.6.2.
 Next, the following libraries need to be installed and working: tensorflow, keras, numpy, matplotlib.
 
+---
+
+Explanation of the files:
+
+
 ANNFashionMNIST.py
+
 The file ANNFashionMNIST.py contains code for a neural network that can be trained on the dataset of fashionMNIST, which contains pictures of different types of clothes.
 Short explanation of the code:
 First, The data is divided into training data and test (validation) data. Since the data contains 28x28 pixel grayscale images (0-255), their values are first divided by 255, so that the grayscale value will be represented as a number between 0 (white) and 1 (black).
@@ -15,6 +22,7 @@ Lastly, the trainig is started, where 5 epochs are specified (which is a rather 
 Finally, the first 5 images from the test (validation) data are visualised as an image, where both the label and prediciton of the network are displayed.
 
 ANNMNIST.py
+
 The file ANNMNIST.py contains code for a neural network that can be trained on the dataset MNIST, which contains pictures of handwritten digits.
 Short explanation of the code:
 First, The data is divided into training data and test (validation) data. Since the data contains 28x28 pixel grayscale images (0-255), their values are first divided by 255, so that the grayscale value will be represented as a number between 0 (white) and 1 (black).
