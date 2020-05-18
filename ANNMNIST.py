@@ -1,4 +1,7 @@
 import tensorflow as tf
+from tensorflow import keras
+from datetime import datetime
+import tensorboard
 
 # data
 mnist = tf.keras.datasets.mnist
@@ -16,7 +19,17 @@ x_train, x_test = x_train / 255.0, x_test / 255.0
 # Build the model
 model = tf.keras.models.Sequential([
     tf.keras.layers.Flatten(input_shape=(28, 28)),
-    tf.keras.layers.Dense(128, activation='relu'),
-    tf.keras.layers.Dropout(0.2),
-    tf.keras.layers.Dense(10)
+    tf.keras.layers.Dense(64, activation='sigmoid'),
+    tf.keras.layers.Dense(10, activation='softmax')
 ])
+
+# Training specification (optimizer=SGD, loss-function=MSE, metrics=Accuracy)
+model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.5),
+              loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
+
+# Defining the Keras TensorBoard callback, for logging/graphing purposes.
+logdir = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
+tensorboard_callback = keras.callbacks.TensorBoard(log_dir=logdir)
+
+# Start Training
+model.fit(x_train, y_train, epochs=10, callbacks=[tensorboard_callback])
