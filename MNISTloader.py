@@ -27,7 +27,7 @@ def load_data(train_or_val):
     labels = labels[8:]
 
     # convert array in pixel values to array of vectors (of 784 pixels)
-    images = images.reshape((60000, 784, 1))
+    images = images.reshape((int(len(images)/784), 784, 1))
     # convert array of labels (number 0-10) to array of corresponding label vectors (e.g. [0 0 1 0 0 0 0 0 0 0] for 3)
     labels = [create_vector(i) for i in labels]
 
