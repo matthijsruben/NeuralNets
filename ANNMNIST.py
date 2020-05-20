@@ -13,7 +13,7 @@ mnist = tf.keras.datasets.mnist
 # train_labels is an array that contains the correct target values (a number between 0 and 10) that labels the
 # corresponding image in train_data.
 
-# to make values of 0 to 1, instead of 0 to 255, we divide by 255
+# to make values of 0 to 1, instead of 0 to 255, I divide by 255
 x_train, x_test = x_train / 255.0, x_test / 255.0
 
 # Build the model
@@ -25,7 +25,7 @@ model = tf.keras.models.Sequential([
 
 # Training specification (optimizer=SGD, loss-function=MSE, metrics=Accuracy)
 model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.5),
-              loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
+              loss=tf.keras.losses.mean_squared_error, metrics=['accuracy'])
 
 # Defining the Keras TensorBoard callback, for logging/graphing purposes.
 logdir = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
