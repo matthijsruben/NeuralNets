@@ -1,4 +1,3 @@
-import pickle
 import gzip
 import numpy as np
 
@@ -35,6 +34,7 @@ def load_data(train_or_val):
     images = np.divide(images, 255.0)
 
     return images, labels
+
 
 def create_vector(i):
     vector = np.zeros((10, 1))
