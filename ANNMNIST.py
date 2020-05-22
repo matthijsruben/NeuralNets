@@ -25,7 +25,7 @@ model = tf.keras.models.Sequential([
 
 # Training specification (optimizer=SGD, loss-function=MSE, metrics=Accuracy)
 model.compile(optimizer=tf.keras.optimizers.SGD(learning_rate=0.5),
-              loss=tf.keras.losses.mean_squared_error, metrics=['accuracy'])
+              loss=tf.keras.losses.sparse_categorical_crossentropy, metrics=['accuracy'])
 
 # Defining the Keras TensorBoard callback, for logging/graphing purposes.
 logdir = "logs/fit/" + datetime.now().strftime("%Y%m%d-%H%M%S")
