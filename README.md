@@ -1,9 +1,9 @@
 # NeuralNets
-This repo contains code for several different neural networks. This project is created by Matthijs Kok and is used for a bachelor thesis of the study Business and IT on the University of Twente (academic purposes). In order to use/run this code, make sure you adhere to the [requirements](#requirements). For an [explanation](#explanation-of-the-files) you can read the descriptions of the files below. For help, questions or remarks, please send an email to <email>. 
+This repo contains code for several different neural networks. This project is created by Matthijs Kok and is used for a bachelor thesis of the study Business and IT on the University of Twente. In order to use/run code of some files in this repo, make sure you adhere to the [requirements](#requirements). For an [explanation](#explanation-of-the-files) you can read the descriptions of the files below. For help, questions or remarks, please send an email to <email>. 
 
 # Requirements:
 
-There are a few things required, before you will be able to run the code published on this repository. A 64-bit Python version 3.5-3.7 is required, because of compatibility reasons with Tensorflow (library). The code was written in Python 3.6.2. and uses the following libraries: tensorflow, keras, numpy, matplotlib.
+There are a few things required, before you will be able to run the code published on this repository. A 64-bit Python version 3.5-3.7 is required, because of compatibility reasons with Tensorflow (library). The code was written in Python 3.6.2. and uses the following libraries: tensorflow, keras, datetime, random, gzip, numpy, matplotlib.
 
 ---
 
@@ -22,7 +22,7 @@ Then, the model of the Neural Network is created. There are 3 layers. The first 
 
 Next, the model is compiled using the optimizer 'adam', because 'adam' nicely incorporates both 'SGD with momentum' and 'RMSProp'. 'Momentum' uses the exponentially weighted moving average of a time series of gradients in order to accelerate the approach to the (local) minimum of the loss function and to dampen the oscillating effect in pathological curvatures on the surface of the loss function, such as ravines. 'RMSProp' automatically performs simulated annealing in the learning parameter, such that weight update steps become smaller when approaching a minimum. 'Adam' nicely combines the two, which is the reason it is chosen. Currently, 'sparse_categorical_crossentropy' is chosen as the loss function, which is a rather arbitrary choice. Also, the accuracy metric, which calculates how often prediction equals lables (actually it calculates the fraction of correct predictions), is specified in order to keep track of its value each epoch.
 
-Lastly, the trainig is started, where 5 epochs are specified (which is a rather low amount of epochs).
+Lastly, the training is started, where 5 epochs are specified (which is a rather low amount of epochs).
 
 Finally, the first 5 images from the test (validation) data are visualised as an image, where both the label and prediciton of the network are displayed.
 
