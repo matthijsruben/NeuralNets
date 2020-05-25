@@ -45,15 +45,13 @@ class Network(object):
 
         # Initial prints, start showing initial metrics before training
         initial_loss, initial_accuracy = self.calculate_metrics(training_data)
-        print("Start Training: 0 epochs complete")
-        print("Initial loss: {}".format(initial_loss))
-        print("Initial accuracy: {} \n".format(initial_accuracy))
+        print_initial_metrics("Stochastic Gradient Descent (SGD)", initial_loss, initial_accuracy)
         losses = [initial_loss]
         accuracies = [initial_accuracy]
         epochs_axis = [0]
 
         # Repeat the process every epoch
-        for i in range(1, epochs + 1):
+        for i in range(epochs):
             # shuffle the training_data and divide into mini_batches
             random.shuffle(training_data)
             mini_batches = [training_data[k:k+mini_batch_size] for k in range(0, len(training_data), mini_batch_size)]
@@ -67,22 +65,13 @@ class Network(object):
             loss, accuracy = self.calculate_metrics(training_data)
             losses.append(loss)
             accuracies.append(accuracy)
-            epochs_axis.append(i)
+            epochs_axis.append(i + 1)
 
             # PRINT in console
-            print("Epoch {} complete".format(i))
-            print("Loss: {}".format(loss))
-            print("Accuracy: {} \n".format(accuracy))
+            print_training_metrics(i + 1, loss, accuracy)
 
         # PLOT the metrics
-        plt.plot(epochs_axis, losses)
-        plt.xlabel('epochs')
-        plt.ylabel('loss')
-        plt.show()
-        plt.plot(epochs_axis, accuracies)
-        plt.xlabel('epochs')
-        plt.ylabel('accuracy')
-        plt.show()
+        plot_metrics(epochs_axis, losses, accuracies)
 
     def calculate_metrics(self, training_data):
         """"Returns the metrics loss and accuracy for all training_data after an epoch"""
@@ -125,7 +114,7 @@ class Network(object):
 
             # pdbv = (per-layer) vector of partial derivatives of the loss function with respect to the bias
             # pdwv = (per-layer) vector of partial derivatives of the loss function with respect to the weight
-            pdbv = sigmoid_derivative(weighted_input_sums[-1]) * (activations[-1] - mini_batch[i][1])
+            pdbv = sigmoid_derivative(weighted_input_sums[-1]) * self.MSE_derivative(activations[-1], mini_batch[i][1])
             pdwv = np.dot(pdbv, np.transpose(activations[-2]))
 
             # pdbv and pdwv that were just initialized are now added to the list of partial derivatives
@@ -178,7 +167,113 @@ class Network(object):
     def MSE_derivative(self, output_activation, target_activation):
         """"Returns the (partial) derivative of the Mean Squared Error loss function.
         Note that is the PARTIAL derivative with respect to the activation"""
-        return (output_activation - target_activation)
+        return output_activation - target_activation
+
+    # --------------------------------------------- OTHER TRAINING METHODS ---------------------------------------------
+    def hebbian(self, hebbian_type, training_data, epochs, learning_rate):
+        """"Depending on hebbian_type that was specified:
+        Performs Hebbian learning on the network that was inspired by an analogy to logic. The truth table of the
+        imply operator is used to define this learning rule.
+        OR
+        Performs competitive Hebbian learning on the network by decreasing weights of connections where the pre-
+        synaptic neuron fails to excite the post-synaptic neuron, but the post-synaptic neuron is firing nonetheless
+        under the influence of other pre-synaptic neurons. This means that the increase of strength of certain synapses
+        onto the post-synaptic neuron is accompanied by the simultaneous decrease of strength of other synapses onto
+        the same post-synaptic neuron: Spatial competition between convergent afferents.
+        OR
+        Performs BCM Theory, which is focused on synaptic modification that results in temporal competition between
+        input patterns rather than a spatial competition between different synapses. Whether the synaptic strength
+        increases or decreases depends on the magnitude of the post-synaptic response as compared with a variable
+        modification threshold."""
+        training_data = list(training_data)
+        quit_training = False
+
+        # Initial prints, start showing initial metrics before training
+        initial_loss, initial_accuracy = self.calculate_metrics(training_data)
+        print_initial_metrics("Hebbian (" + hebbian_type + ") learning rule", initial_loss, initial_accuracy)
+        losses = [initial_loss]
+        accuracies = [initial_accuracy]
+        epochs_axis = [0]
+
+        # Only used for BCM: Initialize the list that contains average activations over all epochs as empty vectors
+        activations, weighted_input_sums = self.feedforward(training_data[1][0])
+        average_act_list = [np.zeros(act.shape) for act in activations]
+
+        for i in range(epochs):
+            random.shuffle(training_data)
+
+            # the average activations list over all training examples in an epoch
+            # is initialized as a list with empty activation vectors
+            avg_acts = [np.zeros(act.shape) for act in activations]
+
+            for training_example in range(len(training_data)):
+                # FEEDFORWARD
+                activations, weighted_input_sums = self.feedforward(training_data[training_example][0])
+
+                # Add every activation vector to the corresponding average activation vector
+                for act_idx in range(len(avg_acts)):
+                    avg_acts[act_idx] += activations[act_idx]
+
+            # calculate every average activation vector by dividing by the amount of training examples
+            avg_acts = [act / len(training_data) for act in avg_acts]
+
+            # Add every avg_activation vector to the corresponding average (over epochs) activation vector
+            for avg_act_vec_idx in range(len(average_act_list)):
+                average_act_list[avg_act_vec_idx] += avg_acts[avg_act_vec_idx]
+
+            # Moving Average: calculate every average (over epochs) activation vector by dividing the amount of epochs
+            average_act_list = [avg_act_vec / (i + 1) for avg_act_vec in average_act_list]
+
+            # A hebbian type learning rule is used to update the weights of the network
+            for w_idx in range(len(self.weights)):
+                # Define pre-synaptic activation and post-synaptic activation
+                pre_act = avg_acts[w_idx]
+                pre_act_row = np.transpose(pre_act)
+                post_act = avg_acts[w_idx + 1]
+                average_post_act = average_act_list[w_idx + 1]
+
+                # HEBBIAN IMPLY LEARNING RULE
+                if hebbian_type == "imply":
+                    self.weights[w_idx] = (2 * (np.dot(post_act, pre_act_row)) -
+                                           np.dot(np.ones(post_act.shape), pre_act_row)) \
+                                          * learning_rate + self.weights[w_idx]
+                # HEBBIAN COMPETITIVE LEARNING RULE
+                elif hebbian_type == "competitive":
+                    self.weights[w_idx] = (np.dot(post_act, pre_act_row) - np.abs(np.dot(post_act, pre_act_row))) \
+                                          * learning_rate + self.weights[w_idx]
+                # BCM THEORY
+                elif hebbian_type == "BCM":
+                    p = 2
+                    epsilon = 0.1
+                    # FIXME: Currently, I take the average output activation over time. I should take the average
+                    # activation per neuron of the input layer, and calculate activations for other layers from that
+                    threshold = ((average_post_act / learning_rate)**p) * average_post_act
+                    delta_weight = np.dot((post_act - threshold), pre_act_row) + (1 - epsilon) * self.weights[w_idx]
+                    self.weights[w_idx] += delta_weight
+                # INVALID LEARNING RULE
+                else:
+                    print(hebbian_type + " is not a valid Hebbian learning method. Please choose specify one of the "
+                                         "following: \n \"imply\", \"competitive\", \"BCM\"")
+                    quit_training = True
+                    break
+
+            # --- end of for loop trough layers of the network --- #
+
+            # only used when invalid hebbian_type is specified
+            if quit_training:
+                break
+
+            # METRICS calculation
+            loss, accuracy = self.calculate_metrics(training_data)
+            losses.append(loss)
+            accuracies.append(accuracy)
+            epochs_axis.append(i + 1)
+
+            # PRINT in console
+            print_training_metrics(i + 1, loss, accuracy)
+
+        # PLOT the metrics
+        plot_metrics(epochs_axis, losses, accuracies)
 
 
 # Some math functions
@@ -190,3 +285,28 @@ def sigmoid(z):
 def sigmoid_derivative(z):
     """"Returns the derivative of the sigmoid function"""
     return sigmoid(z)*(1-sigmoid(z))
+
+
+# Some printing and plotting functions
+def print_initial_metrics(method, initial_loss, initial_accuracy):
+    print("Start Training: 0 epochs complete")
+    print("Training method: " + method)
+    print("Initial loss: {}".format(initial_loss))
+    print("Initial accuracy: {} \n".format(initial_accuracy))
+
+
+def print_training_metrics(epoch, loss, accuracy):
+    print("Epoch {} complete".format(epoch))
+    print("Loss: {}".format(loss))
+    print("Accuracy: {} \n".format(accuracy))
+
+
+def plot_metrics(horizontal_axis, losses, accuracies):
+    plt.plot(horizontal_axis, losses)
+    plt.xlabel('epochs')
+    plt.ylabel('loss')
+    plt.show()
+    plt.plot(horizontal_axis, accuracies)
+    plt.xlabel('epochs')
+    plt.ylabel('accuracy')
+    plt.show()
