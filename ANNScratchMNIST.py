@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 
 class Network(object):
 
-    def __init__(self, sizes):
+    def __init__(self, sizes, seed):
         """"A network can be initialised with an array called sizes. For example if sizes was [2, 3, 1], then it would
             be a 3-layer network, with the first layer containing 2 neurons, the second layer 3 neurons, and the third layer
             1 neuron.
@@ -13,7 +13,9 @@ class Network(object):
             The first layer is the input layer, so it has no biases."""
         self.amountLayers = len(sizes)
         self.sizes = sizes
+        np.random.seed(seed)
         self.biases = [np.random.randn(y, 1) for y in sizes[1:]]
+        np.random.seed(seed+1)
         self.weights = [np.random.randn(y, x) for x, y in zip(sizes[:-1], sizes[1:])]
 
     def feedforward_output(self, a):
@@ -53,6 +55,7 @@ class Network(object):
         # Repeat the process every epoch
         for i in range(epochs):
             # shuffle the training_data and divide into mini_batches
+            random.seed(0)
             random.shuffle(training_data)
             mini_batches = [training_data[k:k+mini_batch_size] for k in range(0, len(training_data), mini_batch_size)]
 
@@ -113,7 +116,7 @@ class Network(object):
             activations, weighted_input_sums = self.feedforward(mini_batch[i][0])
 
             # pdbv = (per-layer) vector of partial derivatives of the loss function with respect to the bias
-            # pdwv = (per-layer) vector of partial derivatives of the loss function with respect to the weight
+            # pdwv = (per-layer) matrix of partial derivatives of the loss function with respect to the weight
             pdbv = sigmoid_derivative(weighted_input_sums[-1]) * self.MSE_derivative(activations[-1], mini_batch[i][1])
             pdwv = np.dot(pdbv, np.transpose(activations[-2]))
 
@@ -168,6 +171,143 @@ class Network(object):
         """"Returns the (partial) derivative of the Mean Squared Error loss function.
         Note that is the PARTIAL derivative with respect to the activation"""
         return output_activation - target_activation
+
+    # ----------------------------------------- Hebbian Plasticity Term Method -----------------------------------------
+    def HPT_SGD(self, training_data, epochs, mini_batch_size, learning_rate):
+        """"Performs Hebbian Term Method (combi with SGD) on the network, using mini batches. Training data is a list of
+        tuples (x,y) representing the training inputs and the desired outputs. The training data is shuffled and
+        divided into mini_batches. For each mini_batch gradient descent is performed on all weights and biases in the
+        network. Gradient descent will be performed for all mini batch each epoch. Also, metrics are computed, printed,
+        and shown in a plot"""
+        training_data = list(training_data)
+
+        # Initial prints, start showing initial metrics before training
+        initial_loss, initial_accuracy = self.calculate_metrics(training_data)
+        print_initial_metrics("Hebbian Plasticity Term Method (combined with SGD)", initial_loss, initial_accuracy)
+        losses = [initial_loss]
+        accuracies = [initial_accuracy]
+        epochs_axis = [0]
+
+        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # initialize list of average activations over all previous batches, as list with zero-vectors
+        avg_act = [np.zeros((y, 1)) for y in self.sizes]
+
+        # Repeat the process every epoch
+        for i in range(epochs):
+            # shuffle the training_data and divide into mini_batches
+            random.shuffle(training_data)
+            mini_batches = [training_data[k:k + mini_batch_size] for k in range(0, len(training_data), mini_batch_size)]
+
+            # calculate the average batch gradient for weights and biases and use it to perform GRADIENT DESCENT
+            for mini_batch in mini_batches:
+                # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                self.HPT_update_weights(avg_act)
+
+                # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                batch_gradient_bias, batch_gradient_weights, bch_avg_act = self.HPT_calculate_batch_gradient(mini_batch)
+                self.gradient_descent(batch_gradient_bias, batch_gradient_weights, learning_rate)
+
+                # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # Update avg_act
+                for activation_vector in range(len(bch_avg_act)):
+                    avg_act[activation_vector] += bch_avg_act[activation_vector]
+                avg_act = [history / 2 for history in avg_act]
+                # IMPORTANT CHOICE: history counts as much as last batch_avg_act!
+
+
+            # METRICS calculation
+            loss, accuracy = self.calculate_metrics(training_data)
+            losses.append(loss)
+            accuracies.append(accuracy)
+            epochs_axis.append(i + 1)
+
+            # PRINT in console
+            print_training_metrics(i + 1, loss, accuracy)
+
+        # PLOT the metrics
+        plot_metrics(epochs_axis, losses, accuracies)
+
+    def HPT_calculate_batch_gradient(self, mini_batch):
+        """"Returns the average gradient over the batch of all the biases and all the weights in the network.
+        Mini_batch is a list of tuples (x,y) representing a batch of training inputs and desired outputs."""
+        # GRADIENT biases initialized as empty list of pdb vectors and GRADIENT weights empty list of pdw vectors
+        batch_gradient_bias = [np.zeros(b.shape) for b in self.biases]
+        batch_gradient_weights = [np.zeros(w.shape) for w in self.weights]
+
+        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # initialize list of average activations over the training examples in batch, as list with zero-vectors
+        batch_avg_act = [np.zeros((y, 1)) for y in self.sizes]
+
+        # for each training example in the mini-batch, calculate update for all weights and biases in the network
+        # the gradients of all training examples in the mini batch will be added up in the batch_gradient
+        for i in range(len(mini_batch)):
+            # FEEDFORWARD
+            activations, weighted_input_sums = self.feedforward(mini_batch[i][0])
+
+            # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            # Add each (per-layer) activation of a feedforward of a training example (out of 'activations')
+            # to the corresponding (per-layer) activation in the list batch_avg_act
+            for activation_vector in range(len(activations)):
+                batch_avg_act[activation_vector] += activations[activation_vector]
+
+            # pdbv = (per-layer) vector of partial derivatives of the loss function with respect to the bias
+            # pdwv = (per-layer) matrix of partial derivatives of the loss function with respect to the weight
+            pdbv = sigmoid_derivative(weighted_input_sums[-1]) * self.MSE_derivative(activations[-1], mini_batch[i][1])
+            pdwv = np.dot(pdbv, np.transpose(activations[-2]))
+
+            # pdbv and pdwv that were just initialized are now added to the list of partial derivatives
+            # this list is called the gradient
+            gradient_bias = [pdbv]
+            gradient_weights = [pdwv]
+
+            # BACKPROPAGATION
+            # start from 2, because the pdbv and pdwv of the last layer are already calculated and added.
+            for k in range(2, self.amountLayers):
+                pdbv = sigmoid_derivative(weighted_input_sums[-k]) * np.dot(self.weights[-k+1].transpose(), pdbv)
+                pdwv = np.dot(pdbv, np.transpose(activations[-k-1]))
+                gradient_bias.append(pdbv)
+                gradient_weights.append(pdwv)
+
+            # pdb/pdw vectors are added in order from last layer to first layer. Reverse for later purposes
+            gradient_bias.reverse()
+            gradient_weights.reverse()
+
+            # Add each pdbv and pdwv of the gradient to the corresponding vector of the batch_gradient
+            for pdb_vector in range(len(gradient_bias)):
+                batch_gradient_bias[pdb_vector] += gradient_bias[pdb_vector]
+            for pdw_vector in range(len(gradient_weights)):
+                batch_gradient_weights[pdw_vector] += gradient_weights[pdw_vector]
+
+        # Finally, the sum that was added up in the batch_gradient is divided by the amount of training examples from
+        # the mini-batch to get the average gradient over the mini-batch
+        batch_gradient_bias = [pdb / len(mini_batch) for pdb in batch_gradient_bias]
+        batch_gradient_weights = [pdw / len(mini_batch) for pdw in batch_gradient_weights]
+
+        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # Finally, the sum that was added up in the batch_avg_act is divided by the amount of training examples from the
+        # mini-batch to get the average activations over the mini-batch
+        batch_avg_act = [batch_act_vec / len(mini_batch) for batch_act_vec in batch_avg_act]
+
+        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        return batch_gradient_bias, batch_gradient_weights, batch_avg_act
+
+    def HPT_update_weights(self, avg_act):
+        weight_update_list = self.competitive_hebbian(avg_act)
+        return [weight_matrix + HPT_matrix for weight_matrix, HPT_matrix in zip(self.weights, weight_update_list)]
+
+    def competitive_hebbian(self, avg_act):
+        lrn_rate = 0.5
+        weight_update_list = [np.zeros(w.shape) for w in self.weights]
+        for layer in range(len(avg_act)-1):
+            pre = layer
+            post = layer + 1
+            weight_update_list[layer] += (np.dot(avg_act[post], avg_act[pre].transpose())
+                                          - np.abs(np.subtract(avg_act[pre].transpose(), avg_act[post]))) * lrn_rate
+        return weight_update_list
+
+    # ----------------------------------------------- Combination Method -----------------------------------------------
+    def combi_rule_SGD(self):
+        return False
 
     # --------------------------------------------- OTHER TRAINING METHODS ---------------------------------------------
     def hebbian(self, hebbian_type, training_data, epochs, learning_rate):
