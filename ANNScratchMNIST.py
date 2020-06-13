@@ -10,7 +10,8 @@ class Network(object):
             be a 3-layer network, with the first layer containing 2 neurons, the second layer 3 neurons, and the third layer
             1 neuron.
             Currently biases and weights are randomly generated from a standard normal distribution with mean 0 and variance 1.
-            The first layer is the input layer, so it has no biases."""
+            The first layer is the input layer, so it has no biases.
+            Seed is for generating the same random numbers every run. Useful for comparing methods."""
         self.amountLayers = len(sizes)
         self.sizes = sizes
         np.random.seed(seed)
@@ -173,12 +174,10 @@ class Network(object):
         return output_activation - target_activation
 
     # ----------------------------------------- Hebbian Plasticity Term Method -----------------------------------------
-    def HPT_SGD(self, training_data, epochs, mini_batch_size, learning_rate):
-        """"Performs Hebbian Term Method (combi with SGD) on the network, using mini batches. Training data is a list of
-        tuples (x,y) representing the training inputs and the desired outputs. The training data is shuffled and
-        divided into mini_batches. For each mini_batch gradient descent is performed on all weights and biases in the
-        network. Gradient descent will be performed for all mini batch each epoch. Also, metrics are computed, printed,
-        and shown in a plot"""
+    def HPT_SGD(self, training_data, epochs, mini_batch_size, learning_rate, HPT_lr):
+        """"Performs Hebbian Plasticity Term Method (combi with SGD) on the network similarly as SGD. It keeps a list avg_act of
+        average activations over previous batches, which is updated after every batch. Also, before gradients are
+        computed, the weights of the network are updated by adding Hebbian Plasticity Term (HPT)"""
         training_data = list(training_data)
 
         # Initial prints, start showing initial metrics before training
@@ -188,9 +187,14 @@ class Network(object):
         accuracies = [initial_accuracy]
         epochs_axis = [0]
 
-        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-        # initialize list of average activations over all previous batches, as list with zero-vectors
+        # initialize list of average activations over all previous batches, as list with zero-vectors.
+        # Used for computing the HTP
         avg_act = [np.zeros((y, 1)) for y in self.sizes]
+
+        # STDP GRAPH
+        # stdpPRE = []
+        # stdpPOST = []
+        # stdpSYNAPSE = []
 
         # Repeat the process every epoch
         for i in range(epochs):
@@ -200,20 +204,23 @@ class Network(object):
 
             # calculate the average batch gradient for weights and biases and use it to perform GRADIENT DESCENT
             for mini_batch in mini_batches:
-                # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                self.HPT_update_weights(avg_act)
+                # new_weights is list of (weight + HPT)-matrices. HPT = Hebbian Plasticity Term.
+                new_weights = self.HPT_update_weights(avg_act, HPT_lr)
 
-                # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                batch_gradient_bias, batch_gradient_weights, bch_avg_act = self.HPT_calculate_batch_gradient(mini_batch)
+                # new_weights is used to calculate batch gradient. Also, batch_avg_act is used to update avg_act
+                batch_gradient_bias, batch_gradient_weights, bch_avg_act =\
+                    self.HPT_calculate_batch_gradient(mini_batch, new_weights)
                 self.gradient_descent(batch_gradient_bias, batch_gradient_weights, learning_rate)
 
-                # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                # Update avg_act
+                # STDP GRAPH
+                # stdpPRE.append(bch_avg_act[-3][0][0])
+                # stdpPOST.append(bch_avg_act[-2][0][0])
+                # stdpSYNAPSE.append(batch_gradient_weights[-2][0][0])
+
+                # Update avg_act. Used to compute HPT
                 for activation_vector in range(len(bch_avg_act)):
                     avg_act[activation_vector] += bch_avg_act[activation_vector]
-                avg_act = [history / 2 for history in avg_act]
-                # IMPORTANT CHOICE: history counts as much as last batch_avg_act!
-
+                avg_act = [history / 2 for history in avg_act]  # CHOICE: history counts as much as last batch_avg_act!
 
             # METRICS calculation
             loss, accuracy = self.calculate_metrics(training_data)
@@ -227,24 +234,26 @@ class Network(object):
         # PLOT the metrics
         plot_metrics(epochs_axis, losses, accuracies)
 
-    def HPT_calculate_batch_gradient(self, mini_batch):
-        """"Returns the average gradient over the batch of all the biases and all the weights in the network.
-        Mini_batch is a list of tuples (x,y) representing a batch of training inputs and desired outputs."""
+        # for COMBINED PLOTTING purposes. For example, useful for comparing methods
+        # return losses, accuracies, stdpPRE, stdpPOST, stdpSYNAPSE
+
+    def HPT_calculate_batch_gradient(self, mini_batch, new_weights):
+        """"Similar to calculate_batch_gradient but now also calculates average activation, for all neurons in the
+        network, of the batch. This is then returned as well to be used in SGD."""
         # GRADIENT biases initialized as empty list of pdb vectors and GRADIENT weights empty list of pdw vectors
         batch_gradient_bias = [np.zeros(b.shape) for b in self.biases]
         batch_gradient_weights = [np.zeros(w.shape) for w in self.weights]
 
-        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # initialize list of average activations over the training examples in batch, as list with zero-vectors
+        # used to calculate avg_act in the method HPT_SGD
         batch_avg_act = [np.zeros((y, 1)) for y in self.sizes]
 
         # for each training example in the mini-batch, calculate update for all weights and biases in the network
         # the gradients of all training examples in the mini batch will be added up in the batch_gradient
         for i in range(len(mini_batch)):
-            # FEEDFORWARD
-            activations, weighted_input_sums = self.feedforward(mini_batch[i][0])
+            # FEEDFORWARD. This time based on a (weight + HPT)-matrix from new_weights
+            activations, weighted_input_sums = self.HPT_feedforward(mini_batch[i][0], new_weights)
 
-            # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             # Add each (per-layer) activation of a feedforward of a training example (out of 'activations')
             # to the corresponding (per-layer) activation in the list batch_avg_act
             for activation_vector in range(len(activations)):
@@ -263,7 +272,7 @@ class Network(object):
             # BACKPROPAGATION
             # start from 2, because the pdbv and pdwv of the last layer are already calculated and added.
             for k in range(2, self.amountLayers):
-                pdbv = sigmoid_derivative(weighted_input_sums[-k]) * np.dot(self.weights[-k+1].transpose(), pdbv)
+                pdbv = sigmoid_derivative(weighted_input_sums[-k]) * np.dot(new_weights[-k+1].transpose(), pdbv)
                 pdwv = np.dot(pdbv, np.transpose(activations[-k-1]))
                 gradient_bias.append(pdbv)
                 gradient_weights.append(pdwv)
@@ -283,26 +292,56 @@ class Network(object):
         batch_gradient_bias = [pdb / len(mini_batch) for pdb in batch_gradient_bias]
         batch_gradient_weights = [pdw / len(mini_batch) for pdw in batch_gradient_weights]
 
-        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
         # Finally, the sum that was added up in the batch_avg_act is divided by the amount of training examples from the
-        # mini-batch to get the average activations over the mini-batch
+        # mini-batch to get the average activations over the mini-batch. Used to compute avg_act in the method HPT_SGD.
         batch_avg_act = [batch_act_vec / len(mini_batch) for batch_act_vec in batch_avg_act]
 
-        # MODIFICATION!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        # Also return batch_avg_act here to pass to the method HPT_SGD to compute avg_act
         return batch_gradient_bias, batch_gradient_weights, batch_avg_act
 
-    def HPT_update_weights(self, avg_act):
-        weight_update_list = self.competitive_hebbian(avg_act)
+    def HPT_feedforward(self, a, new_weights):
+        """"Returns two arrays. The first is the list of all activation_vectors ordered by layer.
+        The second is the list of all weighted-input-sum_vectors ordered by layer
+        The feed forward is based on a (weight + HPT)-matrix instead of a normal weight-matrix."""
+        activation = a
+        activations = [a]
+        weighted_input_sums = []
+        for b, w in zip(self.biases, new_weights):
+            z = np.dot(w, activation) + b
+            weighted_input_sums.append(z)
+            activation = sigmoid(z)
+            activations.append(activation)
+        return activations, weighted_input_sums
+
+    def HPT_update_weights(self, avg_act, HPT_lr):
+        """"Creates list new_weights by adding a Hebbian Plasticity Term (HPT) to each weight in the network.
+        This term is calculated according to a Hebbian learning rule. This learning rule can be anything, like
+        competitive_hebbian or imply_hebbian"""
+        weight_update_list = self.imply_hebbian(avg_act, HPT_lr)
         return [weight_matrix + HPT_matrix for weight_matrix, HPT_matrix in zip(self.weights, weight_update_list)]
 
-    def competitive_hebbian(self, avg_act):
-        lrn_rate = 0.5
+    def competitive_hebbian(self, avg_act, HPT_lr):
+        """"Calculates the Hebbian Plasticity Term (HPT) of each weight in the network,
+         using the competitive_Hebbian learning rule."""
+        lrn_rate = HPT_lr
         weight_update_list = [np.zeros(w.shape) for w in self.weights]
         for layer in range(len(avg_act)-1):
             pre = layer
             post = layer + 1
             weight_update_list[layer] += (np.dot(avg_act[post], avg_act[pre].transpose())
                                           - np.abs(np.subtract(avg_act[pre].transpose(), avg_act[post]))) * lrn_rate
+        return weight_update_list
+
+    def imply_hebbian(self, avg_act, HPT_lr):
+        """"Calculates the Hebbian Plasticity Term (HPT) of each weight in the network,
+         using the imply_Hebbian learning rule."""
+        lrn_rate = HPT_lr
+        weight_update_list = [np.zeros(w.shape) for w in self.weights]
+        for layer in range(len(avg_act)-1):
+            pre = layer
+            post = layer + 1
+            weight_update_list[layer] += np.subtract((2 * (np.dot(avg_act[post], avg_act[pre].transpose()))),
+                                                     avg_act[pre].transpose()) * lrn_rate
         return weight_update_list
 
     # ----------------------------------------------- Combination Method -----------------------------------------------
@@ -414,6 +453,8 @@ class Network(object):
 
         # PLOT the metrics
         plot_metrics(epochs_axis, losses, accuracies)
+
+        # return losses, accuracies
 
 
 # Some math functions
