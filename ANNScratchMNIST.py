@@ -317,7 +317,7 @@ class Network(object):
         """"Creates list new_weights by adding a Hebbian Plasticity Term (HPT) to each weight in the network.
         This term is calculated according to a Hebbian learning rule. This learning rule can be anything, like
         competitive_hebbian or imply_hebbian"""
-        weight_update_list = self.imply_hebbian(avg_act, HPT_lr)
+        weight_update_list = self.competitive_hebbian(avg_act, HPT_lr)
         return [weight_matrix + HPT_matrix for weight_matrix, HPT_matrix in zip(self.weights, weight_update_list)]
 
     def competitive_hebbian(self, avg_act, HPT_lr):
