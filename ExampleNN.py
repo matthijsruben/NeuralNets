@@ -13,6 +13,10 @@ net.SGD(training_data, 20, 28, 0.5)
 # net2 = ANNScratchMNIST.Network([784, 30, 10], 0)
 # HPT_losses, HPT_accuracies, stdpPRE, stdpPOST, stdpSYNAPSE = net2.HPT_SGD(training_data, 5, 28, 0.5, 1)
 
+# COMBI RULE
+# net3 = ANNScratchMNIST.Network([784, 30, 10], 0)
+# net3.COMBI_SGD(training_data, 100, 28, 0.5, 0)
+
 # HEBBIAN LEARNING RULES
 # net.hebbian("imply", training_data, 20, 0.5)
 # net.hebbian("competitive", training_data, 20, 0.5)

@@ -345,8 +345,98 @@ class Network(object):
         return weight_update_list
 
     # ----------------------------------------------- Combination Method -----------------------------------------------
-    def combi_rule_SGD(self):
-        return False
+    def COMBI_SGD(self, training_data, epochs, mini_batch_size, learning_rate, COMBI_lr):
+        """"Performs Combination rule (combi with SGD) on the network, using mini batches."""
+        training_data = list(training_data)
+
+        # Initial prints, start showing initial metrics before training
+        initial_loss, initial_accuracy = self.calculate_metrics(training_data)
+        print_initial_metrics("Combination rule (combined with SGD)", initial_loss, initial_accuracy)
+        losses = [initial_loss]
+        accuracies = [initial_accuracy]
+        epochs_axis = [0]
+
+        # Repeat the process every epoch
+        for i in range(epochs):
+            # shuffle the training_data and divide into mini_batches
+            random.seed(0)
+            random.shuffle(training_data)
+            mini_batches = [training_data[k:k + mini_batch_size] for k in range(0, len(training_data), mini_batch_size)]
+
+            # calculate the average batch gradient for weights and biases and use it to perform GRADIENT DESCENT
+            for mini_batch in mini_batches:
+                batch_gradient_bias, batch_gradient_weights = self.COMBI_calculate_batch_gradient(mini_batch, COMBI_lr)
+                self.gradient_descent(batch_gradient_bias, batch_gradient_weights, learning_rate)
+
+            # METRICS calculation
+            loss, accuracy = self.calculate_metrics(training_data)
+            losses.append(loss)
+            accuracies.append(accuracy)
+            epochs_axis.append(i + 1)
+
+            # PRINT in console
+            print_training_metrics(i + 1, loss, accuracy)
+
+        # PLOT the metrics
+        plot_metrics(epochs_axis, losses, accuracies)
+
+    def COMBI_calculate_batch_gradient(self, mini_batch, COMBI_lr):
+        """"Similar to calculate_batch_gradient but now only calculates pdbv according to SGD and pdwv is calculated
+        according to a Hebbian rule"""
+        # GRADIENT biases initialized as empty list of pdb vectors and GRADIENT weights empty list of pdw vectors
+        batch_gradient_bias = [np.zeros(b.shape) for b in self.biases]
+        batch_gradient_weights = [np.zeros(w.shape) for w in self.weights]
+
+        # for each training example in the mini-batch, calculate update for all weights and biases in the network
+        # the gradients of all training examples in the mini batch will be added up in the batch_gradient
+        for i in range(len(mini_batch)):
+            # FEEDFORWARD
+            activations, weighted_input_sums = self.feedforward(mini_batch[i][0])
+
+            # pdbv = (per-layer) vector of partial derivatives of the loss function with respect to the bias
+            # pdwv = (per-layer) matrix of partial derivatives of the loss function with respect to the weight
+            pdbv = sigmoid_derivative(weighted_input_sums[-1]) * self.MSE_derivative(activations[-1], mini_batch[i][1])
+            # COMPETITIVE
+            pdwv = (np.dot(activations[-1], activations[-2].transpose())
+                    - np.abs(np.subtract(activations[-2].transpose(), activations[-1]))) * COMBI_lr
+            # IMPLY
+            # pdwv = np.subtract((2 * (np.dot(activations[-1], activations[-2].transpose()))),
+            #                    activations[-2].transpose()) * COMBI_lr
+
+            # pdbv and pdwv that were just initialized are now added to the list of partial derivatives
+            # this list is called the gradient
+            gradient_bias = [pdbv]
+            gradient_weights = [pdwv]
+
+            # BACKPROPAGATION
+            # start from 2, because the pdbv and pdwv of the last layer are already calculated and added.
+            for k in range(2, self.amountLayers):
+                pdbv = sigmoid_derivative(weighted_input_sums[-k]) * np.dot(self.weights[-k + 1].transpose(), pdbv)
+                # COMPETITIVE
+                pdwv = (np.dot(activations[-k], activations[-k-1].transpose())
+                        - np.abs(np.subtract(activations[-k-1].transpose(), activations[-k]))) * COMBI_lr
+                # IMPLY
+                # pdwv = np.subtract((2 * (np.dot(activations[-k], activations[-k-1].transpose()))),
+                #                    activations[-k-1].transpose()) * COMBI_lr
+                gradient_bias.append(pdbv)
+                gradient_weights.append(pdwv)
+
+            # pdb/pdw vectors are added in order from last layer to first layer. Reverse for later purposes
+            gradient_bias.reverse()
+            gradient_weights.reverse()
+
+            # Add each pdbv and pdwv of the gradient to the corresponding vector of the batch_gradient
+            for pdb_vector in range(len(gradient_bias)):
+                batch_gradient_bias[pdb_vector] += gradient_bias[pdb_vector]
+            for pdw_vector in range(len(gradient_weights)):
+                batch_gradient_weights[pdw_vector] += gradient_weights[pdw_vector]
+
+        # Finally, the sum that was added up in the batch_gradient is divided by the amount of training examples from
+        # the mini-batch to get the average gradient over the mini-batch
+        batch_gradient_bias = [pdb / len(mini_batch) for pdb in batch_gradient_bias]
+        batch_gradient_weights = [pdw / len(mini_batch) for pdw in batch_gradient_weights]
+
+        return batch_gradient_bias, batch_gradient_weights
 
     # --------------------------------------------- OTHER TRAINING METHODS ---------------------------------------------
     def hebbian(self, hebbian_type, training_data, epochs, learning_rate):
