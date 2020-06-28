@@ -544,7 +544,7 @@ class Network(object):
         # PLOT the metrics
         plot_metrics(epochs_axis, losses, accuracies)
 
-        # return losses, accuracies
+        return losses, accuracies
 
 
 # Some math functions
