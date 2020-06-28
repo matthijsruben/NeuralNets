@@ -1,5 +1,5 @@
 # NeuralNets
-This repo contains code for several different neural networks. This project is created by Matthijs Kok and is used for a [bachelor thesis](##Final_Research_Paper_Matthijs_Kok.pdf) of the study Business and IT on the University of Twente. In order to use/run code of some files in this repo, make sure you adhere to the [requirements](#requirements). For an [explanation](#explanation-of-the-files-and-folders) you can read the descriptions of the files below. For help, questions or remarks, please send an email to m.r.kok@student.utwente.nl. 
+This repo contains code for several different neural networks. This project is created by Matthijs Kok and is used for a bachelor thesis of the study Business and IT on the University of Twente. In order to use/run code of some files in this repo, make sure you adhere to the [requirements](#requirements). For an [explanation](#explanation-of-the-files-and-folders) you can read the descriptions of the files below. For help, questions or remarks, please send an email to m.r.kok@student.utwente.nl. 
 
 P.S. Note that the folder TFNNs contains personal Neural Network tryouts that were created using libraries such as Tensorflow and Keras. This folder and its contents are not used for the bachelor project.
 
